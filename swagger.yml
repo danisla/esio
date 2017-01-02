@@ -1,0 +1,186 @@
+swagger: "2.0"
+info:
+  description: Orchestrates the recovery and cleanup of Elasticsearch index snapshots.
+  title: Elasticsearch Snapshot Index Orchestrator
+  version: 1.0.0
+produces:
+- application/json
+consumes:
+- application/json
+schemes:
+- http
+host: "127.0.0.1:8000"
+paths:
+  /{start}/{end}:
+    get:
+      tags:
+        - index
+      parameters:
+        - name: start
+          description: UTC start time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int64
+        - name: end
+          description: UTC end time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int64
+        - name: resolution
+          description: Optional override of the index resolution, must be 'day', 'month', or 'year'
+          in: query
+          type: string
+        - name: repo_pattern
+          description: Optional override of the repo pattern, must be URL encoded.
+          in: query
+          type: string
+      responses:
+        200:
+          description: All indices in [start,end] range are availble and ready.
+          schema:
+            $ref: "#/definitions/ready"
+        206:
+          description: Zero or more of the indices in the [start,end] range are available and ready.
+          schema:
+            $ref: "#/definitions/partial"
+        404:
+          description: Indices in the [start,end] range are available for restore but not available.
+          schema:
+            $ref: "#/definitions/not_ready"
+        416:
+          description: No indices are available for restore in given [start,end] range.
+          schema:
+            $ref: "#/definitions/error"
+        400:
+          description: invalid time range provided
+          schema:
+            $ref: "#/definitions/error"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/error"
+    post:
+      tags:
+        - index
+      parameters:
+        - name: start
+          description: start time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int32
+        - name: end
+          description: end time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int32
+        - name: resolution
+          description: Optional override of the index resolution, must be 'day', 'month', or 'year'
+          in: query
+          type: string
+        - name: repo_pattern
+          description: Optional override of the repo pattern, must be URL encoded.
+          in: query
+          type: string
+      responses:
+        200:
+          description: All indices in [start,end] range are availble and ready.
+          schema:
+            $ref: "#/definitions/ready"
+        202:
+          description: Index restore started
+          schema:
+            $ref: "#/definitions/started"
+        206:
+          description: Zero or more of the indices in the [start,end] range are available and ready.
+          schema:
+            $ref: "#/definitions/partial"
+        404:
+          description: Indices in the [start,end] range are available for restore but not available.
+          schema:
+            $ref: "#/definitions/not_ready"
+        416:
+          description: No indices are available for restore in given [start,end] range.
+          schema:
+            $ref: "#/definitions/error"
+        400:
+          description: invalid time range provided
+          schema:
+            $ref: "#/definitions/error"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/error"
+
+  /healthz:
+    get:
+      tags:
+        - health
+      responses:
+        200:
+          description: API and Elasticsearch server are healthy.
+          schema:
+            $ref: "#/definitions/healthz"
+        default:
+          description: API or Elasticsearch server are not healthy.
+          schema:
+            $ref: "#/definitions/healthz"
+
+definitions:
+  error:
+    type: object
+    required:
+      - message
+    properties:
+      message:
+        type: string
+        minLength: 1
+
+  ready:
+    type: object
+    allOf:
+      - $ref: "#/definitions/indice_status"
+  started:
+    type: object
+    allOf:
+      - $ref: "#/definitions/indice_status"
+  partial:
+    type: object
+    allOf:
+      - $ref: "#/definitions/indice_status"
+  not_ready:
+    type: object
+    allOf:
+      - $ref: "#/definitions/indice_status"
+
+  indice_status:
+    type: object
+    properties:
+      ready:
+        type: array
+        items:
+          type: string
+      restoring:
+        type: array
+        items:
+          type: string
+      pending:
+        type: array
+        items:
+          type: string
+
+  healthz:
+    type: object
+    required:
+      - status
+      - message
+    properties:
+      status:
+        type: string
+        minLength: 2
+      message:
+        type: string
+        minLength: 1
