@@ -14,13 +14,13 @@ import (
 // swagger:model indice_status
 type IndiceStatus struct {
 
-	// pending
+	// List of indices that are available not but being restored.
 	Pending []string `json:"pending"`
 
-	// ready
+	// List of indices restored and are ready for query.
 	Ready []string `json:"ready"`
 
-	// restoring
+	// List of indices being resotred.
 	Restoring []string `json:"restoring"`
 }
 

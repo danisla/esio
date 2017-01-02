@@ -1,7 +1,6 @@
 package restapi
 
 import (
-	"container/list"
 	"crypto/tls"
 	"encoding/json"
 	"log"
@@ -84,6 +83,8 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 
 	api.IndexGetStartEndHandler = index.GetStartEndHandlerFunc(func(params index.GetStartEndParams) middleware.Responder {
  		var msg = ""
+		var res = index.NewGetStartEndOK()
+
 		utc, _ := time.LoadLocation("UTC")
 
 		// Parse the start time
@@ -93,7 +94,6 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 		start := time.Unix(params.Start, 0)
 		start = start.In(utc)
-		start_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", start)
 
 		// Parse the end time
 		if params.End < 0 {
@@ -102,7 +102,6 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 		end := time.Unix(params.End, 0)
 		end = end.In(utc)
-		end_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", end)
 
 		// Time range must be valid
 		if params.Start >= params.End {
@@ -125,20 +124,36 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		// Look for indices in given range.
 		indices := makeIndexListFromRange(start, end, indexResolution, repoPattern)
 
-		// Iterate through list and print its contents.
-		var allPass = true
-		for e := indices.Front(); e != nil; e = e.Next() {
-			allPass = allPass && validateSnapshotIndex(e.Value.(string))
+		if len(indices) == 0 {
+			start_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", start)
+			end_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", end)
+			msg = fmt.Sprintf("No index patterns could be created from index resolution: '%s', repo pattern: '%s', and range: [%s, %s]", indexResolution, repoPattern, start_fmt, end_fmt)
+			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 		}
+
+		// Iterate through list and validate each index.
+		var allPass = true
+		for _, index := range indices {
+			allPass = allPass && validateSnapshotIndex(index)
+		}
+
+		if allPass != true {
+			start_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", start)
+			end_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", end)
+			msg = "Not all indices in given range were found to restore: [" + start_fmt + ", " + end_fmt + "]"
+			return index.NewGetStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// var status = &models.IndiceStatus{Pending: [], Ready: [], Restoring: []}
 
 		if allPass {
 			log.Println("All indices found")
 		} else {
 			log.Println("Missing indices")
+			// res =
 		}
 
-		msg = "No indices are available for restore in given [" + start_fmt + ", " + end_fmt + "] range."
-		return index.NewGetStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+		return res
 	})
 
 	api.IndexPostStartEndHandler = index.PostStartEndHandlerFunc(func(params index.PostStartEndParams) middleware.Responder {
@@ -200,8 +215,9 @@ func setupGlobalMiddleware(handler http.Handler) http.Handler {
 
 // Create a list of indices to be restored from the given start,end range.
 // Snapshots are derived from the given repoPattern and discritized at intervals of given indexResolution
-func makeIndexListFromRange(start time.Time, end time.Time, indexResolution string, repoPattern string) *list.List {
-	var l = list.New()
+func makeIndexListFromRange(start time.Time, end time.Time, indexResolution string, repoPattern string) []string {
+	a := make([]string, 0)
+
 	// starting from start time, make index pattern
 	// Increment start time by IndexResolution
 	// Add next interval to list until time exceedes end time.
@@ -209,15 +225,17 @@ func makeIndexListFromRange(start time.Time, end time.Time, indexResolution stri
 	var t = start
 
 	for t.Before(end) {
-		l.PushBack(strftime.Format(repoPattern, t))
+		a = append(a, strftime.Format(repoPattern, t))
 		switch indexResolution {
 			case "day": t = t.AddDate(0,0,1)
 			case "month": t = t.AddDate(0,1,0)
 			case "year": t = t.AddDate(1,0,0)
-			default: panic("Unhandled IndexResolution switch case: " + indexResolution)
+			default:
+				log.Println("Invalid index resolution: " + indexResolution)
+				return make([]string, 0)
 		}
 	}
-	return l
+	return a
 }
 
 // Verifies each index pattern in given list is found on the ES cluster.
@@ -254,13 +272,19 @@ func validateSnapshotIndex(repoPattern string) bool {
 		return false
 	}
 
-	var indices = snap.Snapshots[0].Indices
-	sort.Strings(indices)
+	for _, snapshot := range snap.Snapshots {
+		var indices = snapshot.Indices
+		sort.Strings(indices)
 
-	i := sort.Search(len(indices),
-	    func(i int) bool { return indices[i] >= target })
-	if i < len(indices) && indices[i] == target {
+		i := sort.Search(len(indices),
+		    func(i int) bool { return indices[i] >= target })
+		if i < len(indices) && indices[i] == target {
+			if snapshot.State != "SUCCESS" {
+				log.Println("Snapshot state was not 'SUCCESS': ", snap)
+				return false
+			}
 			return true
+		}
 	}
 
 	log.Println("Could not locate index in repo: ", target)

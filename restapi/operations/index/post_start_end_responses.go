@@ -159,7 +159,7 @@ func (o *PostStartEndBadRequest) WriteResponse(rw http.ResponseWriter, producer 
 	}
 }
 
-/*PostStartEndNotFound Indices in the [start,end] range are available for restore but not available.
+/*PostStartEndNotFound All indices in the [start,end] range are ready for restore but not available.
 
 swagger:response postStartEndNotFound
 */
@@ -196,7 +196,7 @@ func (o *PostStartEndNotFound) WriteResponse(rw http.ResponseWriter, producer ru
 	}
 }
 
-/*PostStartEndRequestRangeNotSatisfiable No indices are available for restore in given [start,end] range.
+/*PostStartEndRequestRangeNotSatisfiable Not all indices in given [start,end] range were found to restore.
 
 swagger:response postStartEndRequestRangeNotSatisfiable
 */

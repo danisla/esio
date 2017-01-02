@@ -15,12 +15,22 @@ MON_START_TS := 1472688000
 # 2016-12-28T00:00:00Z
 MON_END_TS := 1482883200
 
-test: test-1-day test-3-day test-1-month test-3-month
+test: test-invalid-resolution test-out-of-range test-1-day-offline test-3-day-offline test-1-month-offline test-3-month-offline
 
-test-%-day: $(TEST_DEPS)
-	curl -f -XGET "http://$(APP_HOST):$(APP_PORT)/$(DOY_START_TS)/$(shell echo $(DOY_START_TS) + 3600*24*$* | bc)?repo_pattern=$(TEST_REPO_PATTERN_DAILY)&resolution=day"
+test-%-day-offline: $(TEST_DEPS)
+	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(DOY_START_TS)/$(shell echo $(DOY_START_TS) + 3600*24*$* | bc)?repo_pattern=$(TEST_REPO_PATTERN_DAILY)&resolution=day"))
+	@if [ "$(RES)" != "404" ]; then echo "ERROR: Expected status code '404' but saw: '$(RES)'" ; exit 1; fi
 
-test-%-month: $(TEST_DEPS)
-	curl -f -XGET "http://$(APP_HOST):$(APP_PORT)/$(MON_START_TS)/$(shell echo $(MON_START_TS) + 3600*24*30*$* | bc)?repo_pattern=$(TEST_REPO_PATTERN_MONTHLY)&resolution=month"
+test-%-month-offline: $(TEST_DEPS)
+	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(MON_START_TS)/$(shell echo $(MON_START_TS) + 3600*24*30*$* | bc)?repo_pattern=$(TEST_REPO_PATTERN_MONTHLY)&resolution=month"))
+	@if [ "$(RES)" != "404" ]; then echo "ERROR: Expected status code '404' but saw: '$(RES)'" ; exit 1; fi
+
+test-invalid-resolution: $(TEST_DEPS)
+	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(MON_START_TS)/$(MON_END_TS)?resolution=foo"))
+	@if [ "$(RES)" != "400" ]; then echo "ERROR: Expected status code '400' but saw: '$(RES)'" ; exit 1; fi
+
+test-out-of-range: $(TEST_DEPS)
+	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(shell echo $(DOY_START_TS) - 3600*24*5 | bc)/$(shell echo $(DOY_START_TS) - 3600*24*4 | bc)?repo_pattern=$(TEST_REPO_PATTERN_DAILY)&resolution=day"))
+	@if [ "$(RES)" != "416" ]; then echo "ERROR: Expected status code '416' but saw: '$(RES)'" ; exit 1; fi
 
 clean-test: clean-repo clean-template

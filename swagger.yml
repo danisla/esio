@@ -99,11 +99,11 @@ paths:
           schema:
             $ref: "#/definitions/partial"
         404:
-          description: Indices in the [start,end] range are available for restore but not available.
+          description: All indices in the [start,end] range are ready for restore but not available.
           schema:
             $ref: "#/definitions/not_ready"
         416:
-          description: No indices are available for restore in given [start,end] range.
+          description: Not all indices in given [start,end] range were found to restore.
           schema:
             $ref: "#/definitions/error"
         400:
@@ -160,14 +160,17 @@ definitions:
     type: object
     properties:
       ready:
+        description: List of indices restored and are ready for query.
         type: array
         items:
           type: string
       restoring:
+        description: List of indices being resotred.
         type: array
         items:
           type: string
       pending:
+        description: List of indices that are available not but being restored.
         type: array
         items:
           type: string
