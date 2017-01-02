@@ -1,12 +1,16 @@
 package restapi
 
 import (
-	"crypto/tls"
-	"net/http"
-	"fmt"
-	"os"
-	"time"
 	"container/list"
+	"crypto/tls"
+	"encoding/json"
+	"log"
+	"fmt"
+	"net/http"
+	"os"
+	"path"
+	"sort"
+	"time"
 
 	errors "github.com/go-openapi/errors"
 	runtime "github.com/go-openapi/runtime"
@@ -25,6 +29,17 @@ import (
 // This file is safe to edit. Once it exists it will not be overwritten
 
 //go:generate swagger generate server --target .. --name Esio --spec ../swagger.yml
+
+type SnapshotResponse struct {
+	Snapshots []Snapshot `json:snapshots`
+}
+
+type Snapshot struct {
+	Snapshot 	string 		`json:snapshot`
+	VersionId int 	 		`json:version_id`
+	Indices   []string 	`json:indices`
+	State     string    `json:state`
+}
 
 var myFlags = struct {
 	EsHost string `long:"es-host" description:"Elasticsearch Host [$ES_HOST]"`
@@ -111,8 +126,15 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		indices := makeIndexListFromRange(start, end, indexResolution, repoPattern)
 
 		// Iterate through list and print its contents.
+		var allPass = true
 		for e := indices.Front(); e != nil; e = e.Next() {
-			fmt.Println(e.Value)
+			allPass = allPass && validateSnapshotIndex(e.Value.(string))
+		}
+
+		if allPass {
+			log.Println("All indices found")
+		} else {
+			log.Println("Missing indices")
 		}
 
 		msg = "No indices are available for restore in given [" + start_fmt + ", " + end_fmt + "] range."
@@ -199,6 +221,49 @@ func makeIndexListFromRange(start time.Time, end time.Time, indexResolution stri
 }
 
 // Verifies each index pattern in given list is found on the ES cluster.
-// func validateIndices(indices *list.List) []string {
-//
-// }
+func validateSnapshotIndex(repoPattern string) bool {
+	url := fmt.Sprintf("%s/_snapshot/%s", myFlags.EsHost, path.Dir(repoPattern))
+	target := path.Base(repoPattern)
+
+	log.Println("Checking snapshot: " + url + " for index: " + target)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.Fatal("NewRequest: ", err)
+		return false
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatal("Do: ", err)
+		return false
+	}
+
+	defer resp.Body.Close()
+
+	var snap SnapshotResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		log.Println(err)
+		return false
+	}
+
+	if len(snap.Snapshots) == 0 {
+		return false
+	}
+
+	var indices = snap.Snapshots[0].Indices
+	sort.Strings(indices)
+
+	i := sort.Search(len(indices),
+	    func(i int) bool { return indices[i] >= target })
+	if i < len(indices) && indices[i] == target {
+			return true
+	}
+
+	log.Println("Could not locate index in repo: ", target)
+
+	return false
+}
