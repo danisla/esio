@@ -25,17 +25,6 @@ import (
 
 //go:generate swagger generate server --target .. --name Esio --spec ../swagger.yml
 
-type SnapshotResponse struct {
-	Snapshots []Snapshot `json:snapshots`
-}
-
-type Snapshot struct {
-	Snapshot 	string 		`json:snapshot`
-	VersionId int 	 		`json:version_id`
-	Indices   []string 	`json:indices`
-	State     string    `json:state`
-}
-
 var myFlags = struct {
 	EsHost string `long:"es-host" description:"Elasticsearch Host [$ES_HOST]"`
 	MaxRestore int `long:"max-restore" description:"Maximum number of indices allowed to restore at once, default is 1 [$MAX_RESTORE]"`

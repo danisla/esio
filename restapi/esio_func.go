@@ -13,6 +13,27 @@ import (
 	strftime "github.com/hhkbp2/go-strftime"
 )
 
+type SnapshotResponse struct {
+	Snapshots []Snapshot `json:"snapshots"`
+}
+
+type Snapshot struct {
+	Snapshot 	string 		`json:"snapshot"`
+	VersionId int 	 		`json:"version_id"`
+	Indices   []string 	`json:"indices"`
+	State     string    `json:"state"`
+}
+
+type CatIndex struct {
+	Health       string `json:"health"`
+	Status       string `json:"status"`
+	Index        string `json:"index"`
+	Primaries    string `json:"pri"`
+	Replicas     string `json:"rep"`
+	StoreSize    string `json:"store.size"`
+	PriStoreSize string `json:"pri.store.size"`
+}
+
 // Create a list of indices to be restored from the given start,end range.
 // Snapshots are derived from the given repoPattern and discritized at intervals of given indexResolution
 func makeIndexListFromRange(start time.Time, end time.Time, indexResolution string, repoPattern string) ([]string, error) {
@@ -47,7 +68,6 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Fatal("NewRequest: ", err)
 		return false, errors.New(500, fmt.Sprintf("Error building http request: %s", err))
 	}
 
@@ -55,7 +75,6 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		//
 		return false, errors.New(500, fmt.Sprintf("Error making client request: %s", err))
 	}
 
@@ -87,4 +106,33 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 	}
 
 	return false, errors.New(404, fmt.Sprintf("Index with name '%s' not found in repo: '%s'", target, snap))
+}
+
+func getIndices() ([]CatIndex, error) {
+	// var cat CatIndices
+	cat := make([]CatIndex,0)
+
+
+	url := fmt.Sprintf("%s/_cat/indices?format=json", myFlags.EsHost)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return cat, errors.New(500, fmt.Sprintf("Error building http request: %s", err))
+	}
+
+	client := &http.Client{}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return cat, errors.New(500, fmt.Sprintf("Error making client request: %s", err))
+	}
+
+	defer resp.Body.Close()
+
+	if err := json.NewDecoder(resp.Body).Decode(&cat); err != nil {
+		// TODO: need to test this
+		return cat, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", url))
+	}
+
+	return cat, nil
 }
