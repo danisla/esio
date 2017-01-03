@@ -30,7 +30,7 @@ run: compile
 		--repo-pattern $(REPO_PATTERN)
 
 compile: validate
-	go get ./...
+	@if [[ "$${GOGET:-true}" == "true" ]]; then echo "go get ./..." ; go get ./...; else echo "Skipping go get"; fi
 	go install ./cmd/$(APP_CMD)
 
 $(SPEC):

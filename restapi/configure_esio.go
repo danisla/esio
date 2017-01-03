@@ -2,13 +2,10 @@ package restapi
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"log"
 	"fmt"
 	"net/http"
 	"os"
-	"path"
-	"sort"
 	"time"
 
 	errors "github.com/go-openapi/errors"
@@ -16,7 +13,6 @@ import (
 	middleware "github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/swag"
 
-	strftime "github.com/hhkbp2/go-strftime"
 	elastic "gopkg.in/olivere/elastic.v2"
 
 	"github.com/danisla/esio/models"
@@ -122,26 +118,21 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 
 		// Look for indices in given range.
-		indices := makeIndexListFromRange(start, end, indexResolution, repoPattern)
-
-		if len(indices) == 0 {
-			start_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", start)
-			end_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", end)
-			msg = fmt.Sprintf("No index patterns could be created from index resolution: '%s', repo pattern: '%s', and range: [%s, %s]", indexResolution, repoPattern, start_fmt, end_fmt)
+		indices, err := makeIndexListFromRange(start, end, indexResolution, repoPattern)
+		if err != nil {
+			msg = fmt.Sprintf("Could not make index range: %s", err)
 			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 		}
 
 		// Iterate through list and validate each index.
 		var allPass = true
-		for _, index := range indices {
-			allPass = allPass && validateSnapshotIndex(index)
-		}
-
-		if allPass != true {
-			start_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", start)
-			end_fmt := strftime.Format("%Y-%m-%d %H:%M:%S UTC", end)
-			msg = "Not all indices in given range were found to restore: [" + start_fmt + ", " + end_fmt + "]"
-			return index.NewGetStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+		for _, i := range indices {
+			passed, err := validateSnapshotIndex(i)
+			if err != nil {
+				msg = fmt.Sprintf("Error validating index: %s: %s", i, err)
+				return index.NewGetStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+			}
+			allPass = allPass && passed
 		}
 
 		// var status = &models.IndiceStatus{Pending: [], Ready: [], Restoring: []}
@@ -211,83 +202,4 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // So this is a good place to plug in a panic handling middleware, logging and metrics
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
 	return handler
-}
-
-// Create a list of indices to be restored from the given start,end range.
-// Snapshots are derived from the given repoPattern and discritized at intervals of given indexResolution
-func makeIndexListFromRange(start time.Time, end time.Time, indexResolution string, repoPattern string) []string {
-	a := make([]string, 0)
-
-	// starting from start time, make index pattern
-	// Increment start time by IndexResolution
-	// Add next interval to list until time exceedes end time.
-
-	var t = start
-
-	for t.Before(end) {
-		a = append(a, strftime.Format(repoPattern, t))
-		switch indexResolution {
-			case "day": t = t.AddDate(0,0,1)
-			case "month": t = t.AddDate(0,1,0)
-			case "year": t = t.AddDate(1,0,0)
-			default:
-				log.Println("Invalid index resolution: " + indexResolution)
-				return make([]string, 0)
-		}
-	}
-	return a
-}
-
-// Verifies each index pattern in given list is found on the ES cluster.
-func validateSnapshotIndex(repoPattern string) bool {
-	url := fmt.Sprintf("%s/_snapshot/%s", myFlags.EsHost, path.Dir(repoPattern))
-	target := path.Base(repoPattern)
-
-	log.Println("Checking snapshot: " + url + " for index: " + target)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Fatal("NewRequest: ", err)
-		return false
-	}
-
-	client := &http.Client{}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Fatal("Do: ", err)
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	var snap SnapshotResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
-		log.Println(err)
-		return false
-	}
-
-	if len(snap.Snapshots) == 0 {
-		return false
-	}
-
-	for _, snapshot := range snap.Snapshots {
-		var indices = snapshot.Indices
-		sort.Strings(indices)
-
-		i := sort.Search(len(indices),
-		    func(i int) bool { return indices[i] >= target })
-		if i < len(indices) && indices[i] == target {
-			if snapshot.State != "SUCCESS" {
-				log.Println("Snapshot state was not 'SUCCESS': ", snap)
-				return false
-			}
-			return true
-		}
-	}
-
-	log.Println("Could not locate index in repo: ", target)
-
-	return false
 }

@@ -29,6 +29,10 @@ test-invalid-resolution: $(TEST_DEPS)
 	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(MON_START_TS)/$(MON_END_TS)?resolution=foo"))
 	@if [ "$(RES)" != "400" ]; then echo "ERROR: Expected status code '400' but saw: '$(RES)'" ; exit 1; fi
 
+test-missing-snapsnot:
+	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(MON_START_TS)/$(MON_END_TS)?resolution=day&repo_pattern=test-foo%2Fdaily%2Ftest-v1-%25Y_%25j"))
+	@if [ "$(RES)" != "416" ]; then echo "ERROR: Expected status code '416' but saw: '$(RES)'" ; exit 1; fi
+
 test-out-of-range: $(TEST_DEPS)
 	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(shell echo $(DOY_START_TS) - 3600*24*5 | bc)/$(shell echo $(DOY_START_TS) - 3600*24*4 | bc)?repo_pattern=$(TEST_REPO_PATTERN_DAILY)&resolution=day"))
 	@if [ "$(RES)" != "416" ]; then echo "ERROR: Expected status code '416' but saw: '$(RES)'" ; exit 1; fi
