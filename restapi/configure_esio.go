@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"time"
 
 	errors "github.com/go-openapi/errors"
 	runtime "github.com/go-openapi/runtime"
@@ -70,27 +69,10 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 
 	api.IndexGetStartEndHandler = index.GetStartEndHandlerFunc(func(params index.GetStartEndParams) middleware.Responder {
  		var msg = ""
-		utc, _ := time.LoadLocation("UTC")
 
-		// Parse the start time
-		if params.Start < 0 {
-			msg = "Start time must be greater than 0"
-			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
-		}
-		start := time.Unix(params.Start, 0)
-		start = start.In(utc)
-
-		// Parse the end time
-		if params.End < 0 {
-			msg = "End time must be greater than 0"
-			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
-		}
-		end := time.Unix(params.End, 0)
-		end = end.In(utc)
-
-		// Time range must be valid
-		if params.Start >= params.End {
-			msg = "Start time must be less than end time"
+		start, end, err := parseTimeRange(params.Start, params.End)
+		if err != nil {
+			msg := fmt.Sprintf("%s", err)
 			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 		}
 

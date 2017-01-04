@@ -16,6 +16,7 @@ MON_START_TS := 1472688000
 MON_END_TS := 1482883200
 
 test: test-invalid-resolution test-out-of-range test-1-day-offline test-3-day-offline test-1-month-offline test-3-month-offline
+	@echo "All tests PASSED"
 
 test-%-day-offline: $(TEST_DEPS)
 	$(eval RES := $(shell curl --silent --output /dev/stderr --write-out "%{http_code}" -XGET "http://$(APP_HOST):$(APP_PORT)/$(DOY_START_TS)/$(shell echo $(DOY_START_TS) + 3600*24*$* | bc)?repo_pattern=$(TEST_REPO_PATTERN_DAILY)&resolution=day"))

@@ -203,3 +203,27 @@ func concat(old1, old2 []string) []string {
 	copy(newslice[len(old1):], old2)
 	return newslice
 }
+
+func parseTimeRange(startInput int64, endInput int64) (time.Time, time.Time, error) {
+	utc, _ := time.LoadLocation("UTC")
+	start := time.Unix(startInput, 0)
+	end := time.Unix(endInput, 0)
+
+	// Parse the start time
+	if startInput < 0 {
+		return start, end, errors.New(400, "Start time must be greater than 0")
+	}
+	start = start.In(utc)
+
+	// Parse the end time
+	if endInput < 0 {
+		return start, end, errors.New(400, "End time must be greater than 0")
+	}
+	end = end.In(utc)
+
+	// Time range must be valid
+	if startInput >= endInput {
+		return start, end, errors.New(400, "Start time must be less than end time")
+	}
+	return start, end, nil
+}
