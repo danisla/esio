@@ -18,7 +18,7 @@ swagger:response postStartEndOK
 type PostStartEndOK struct {
 
 	// In: body
-	Payload *models.Ready `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewPostStartEndOK creates PostStartEndOK with default headers values
@@ -27,13 +27,13 @@ func NewPostStartEndOK() *PostStartEndOK {
 }
 
 // WithPayload adds the payload to the post start end o k response
-func (o *PostStartEndOK) WithPayload(payload *models.Ready) *PostStartEndOK {
+func (o *PostStartEndOK) WithPayload(payload *models.IndiceStatus) *PostStartEndOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post start end o k response
-func (o *PostStartEndOK) SetPayload(payload *models.Ready) {
+func (o *PostStartEndOK) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
@@ -55,7 +55,7 @@ swagger:response postStartEndAccepted
 type PostStartEndAccepted struct {
 
 	// In: body
-	Payload *models.Started `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewPostStartEndAccepted creates PostStartEndAccepted with default headers values
@@ -64,13 +64,13 @@ func NewPostStartEndAccepted() *PostStartEndAccepted {
 }
 
 // WithPayload adds the payload to the post start end accepted response
-func (o *PostStartEndAccepted) WithPayload(payload *models.Started) *PostStartEndAccepted {
+func (o *PostStartEndAccepted) WithPayload(payload *models.IndiceStatus) *PostStartEndAccepted {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post start end accepted response
-func (o *PostStartEndAccepted) SetPayload(payload *models.Started) {
+func (o *PostStartEndAccepted) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
@@ -92,7 +92,7 @@ swagger:response postStartEndPartialContent
 type PostStartEndPartialContent struct {
 
 	// In: body
-	Payload *models.Partial `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewPostStartEndPartialContent creates PostStartEndPartialContent with default headers values
@@ -101,13 +101,13 @@ func NewPostStartEndPartialContent() *PostStartEndPartialContent {
 }
 
 // WithPayload adds the payload to the post start end partial content response
-func (o *PostStartEndPartialContent) WithPayload(payload *models.Partial) *PostStartEndPartialContent {
+func (o *PostStartEndPartialContent) WithPayload(payload *models.IndiceStatus) *PostStartEndPartialContent {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post start end partial content response
-func (o *PostStartEndPartialContent) SetPayload(payload *models.Partial) {
+func (o *PostStartEndPartialContent) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
@@ -166,7 +166,7 @@ swagger:response postStartEndNotFound
 type PostStartEndNotFound struct {
 
 	// In: body
-	Payload *models.NotReady `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewPostStartEndNotFound creates PostStartEndNotFound with default headers values
@@ -175,13 +175,13 @@ func NewPostStartEndNotFound() *PostStartEndNotFound {
 }
 
 // WithPayload adds the payload to the post start end not found response
-func (o *PostStartEndNotFound) WithPayload(payload *models.NotReady) *PostStartEndNotFound {
+func (o *PostStartEndNotFound) WithPayload(payload *models.IndiceStatus) *PostStartEndNotFound {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the post start end not found response
-func (o *PostStartEndNotFound) SetPayload(payload *models.NotReady) {
+func (o *PostStartEndNotFound) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 

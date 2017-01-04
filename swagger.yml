@@ -40,15 +40,15 @@ paths:
         200:
           description: All indices in [start,end] range are availble and ready.
           schema:
-            $ref: "#/definitions/ready"
+            $ref: "#/definitions/indice_status"
         206:
           description: Zero or more of the indices in the [start,end] range are available and ready.
           schema:
-            $ref: "#/definitions/partial"
+            $ref: "#/definitions/indice_status"
         404:
           description: Indices in the [start,end] range are available for restore but not available.
           schema:
-            $ref: "#/definitions/not_ready"
+            $ref: "#/definitions/indice_status"
         416:
           description: No indices are available for restore in given [start,end] range.
           schema:
@@ -89,19 +89,19 @@ paths:
         200:
           description: All indices in [start,end] range are availble and ready.
           schema:
-            $ref: "#/definitions/ready"
+            $ref: "#/definitions/indice_status"
         202:
           description: Index restore started
           schema:
-            $ref: "#/definitions/started"
+            $ref: "#/definitions/indice_status"
         206:
           description: Zero or more of the indices in the [start,end] range are available and ready.
           schema:
-            $ref: "#/definitions/partial"
+            $ref: "#/definitions/indice_status"
         404:
           description: All indices in the [start,end] range are ready for restore but not available.
           schema:
-            $ref: "#/definitions/not_ready"
+            $ref: "#/definitions/indice_status"
         416:
           description: Not all indices in given [start,end] range were found to restore.
           schema:
@@ -138,23 +138,6 @@ definitions:
       message:
         type: string
         minLength: 1
-
-  ready:
-    type: object
-    allOf:
-      - $ref: "#/definitions/indice_status"
-  started:
-    type: object
-    allOf:
-      - $ref: "#/definitions/indice_status"
-  partial:
-    type: object
-    allOf:
-      - $ref: "#/definitions/indice_status"
-  not_ready:
-    type: object
-    allOf:
-      - $ref: "#/definitions/indice_status"
 
   indice_status:
     type: object

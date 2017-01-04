@@ -2,10 +2,12 @@ package restapi
 
 import (
 	"crypto/tls"
+	// "encoding/json"
 	"log"
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	errors "github.com/go-openapi/errors"
@@ -68,8 +70,6 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 
 	api.IndexGetStartEndHandler = index.GetStartEndHandlerFunc(func(params index.GetStartEndParams) middleware.Responder {
  		var msg = ""
-		var res = index.NewGetStartEndOK()
-
 		utc, _ := time.LoadLocation("UTC")
 
 		// Parse the start time
@@ -124,16 +124,49 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 			allPass = allPass && passed
 		}
 
-		// var status = &models.IndiceStatus{Pending: [], Ready: [], Restoring: []}
-
-		if allPass {
-			log.Println("All indices found")
-		} else {
-			log.Println("Missing indices")
-			// res =
+		// Create the IndexStatus data structure
+		indiceStatus, err := makeIndexStatus(indices)
+		if err != nil {
+			msg = fmt.Sprintf("Error comparing online indices with snapshots list: %s", err)
+			return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 		}
 
-		return res
+		// See if all requested indices are Ready
+		var allReady = true
+		var allPending = true
+		var restoringOrPending = true
+		var target = ""
+		for _, i := range indices {
+			target = path.Base(i)
+			allReady = allReady && stringInList(indiceStatus.Ready, target)
+			allPending = allPending && stringInList(indiceStatus.Pending, target)
+			restoringOrPending = restoringOrPending && (stringInList(indiceStatus.Restoring, target) || stringInList(indiceStatus.Pending, target))
+		}
+
+		if allReady {
+			log.Println("All indices were ready")
+			return index.NewGetStartEndOK().WithPayload(&indiceStatus)
+		}
+
+		if allPending {
+			return index.NewGetStartEndNotFound().WithPayload(&indiceStatus)
+		}
+
+		// See if some of the requested indices are Ready
+		if restoringOrPending {
+			return index.NewGetStartEndPartialContent().WithPayload(&indiceStatus)
+		}
+
+		// DEBUG
+		// b, err := json.Marshal(indiceStatus)
+    // if err != nil {
+    //   fmt.Println(err)
+    // } else {
+		// 	log.Println(string(b))
+		// }
+
+		msg = fmt.Sprintf("Error processing current indice status.")
+		return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 	})
 
 	api.IndexPostStartEndHandler = index.PostStartEndHandlerFunc(func(params index.PostStartEndParams) middleware.Responder {

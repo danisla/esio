@@ -11,6 +11,8 @@ import (
 
 	errors "github.com/go-openapi/errors"
 	strftime "github.com/hhkbp2/go-strftime"
+
+	"github.com/danisla/esio/models"
 )
 
 type SnapshotResponse struct {
@@ -95,9 +97,7 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 		var indices = snapshot.Indices
 		sort.Strings(indices)
 
-		i := sort.Search(len(indices),
-		    func(i int) bool { return indices[i] >= target })
-		if i < len(indices) && indices[i] == target {
+		if stringInList(indices, target) {
 			if snapshot.State != "SUCCESS" {
 				return false, errors.New(400, fmt.Sprintf("Snapshot state was not 'SUCCESS': %s", snap))
 			}
@@ -135,4 +135,71 @@ func getIndices() ([]CatIndex, error) {
 	}
 
 	return cat, nil
+}
+
+// Takes a list of indices and matches it against the found indices
+// Populates the []Ready, []Pending and []Restoring arrays of the IndiceStatus struct.
+func makeIndexStatus(indices []string) (models.IndiceStatus, error) {
+	var status = &models.IndiceStatus{Pending: make([]string, 0), Ready: make([]string, 0), Restoring: make([]string, 0)}
+
+	onlineIndices, err := getIndices()
+	if err != nil {
+		return *status, errors.New(500, fmt.Sprintf("Could not GET _cat/indices from Elasticsearch: %s", err))
+	}
+
+	var target = ""
+	var found = false
+
+	// Find all indices that are ready (open and green or yellow) or restoring (open and red)
+	for _, onlineIndice := range onlineIndices {
+
+		target = onlineIndice.Index
+
+		// Verify indice is in list of requested indices.
+		found = stringInList(indices, target)
+
+		if found {
+			if onlineIndice.Status != "open" {
+				return *status, errors.New(500, fmt.Sprintf("Found existing indice on cluster that was not 'open': %s", target))
+			}
+
+			if onlineIndice.Health == "green" || onlineIndice.Health == "yellow" {
+				status.Ready = append(status.Ready, target)
+			} else if onlineIndice.Health == "red" {
+				status.Restoring = append(status.Restoring, target)
+			} else {
+				return *status, errors.New(500, fmt.Sprintf("Found online index: '%s' with invalid Health state '%s'", target, onlineIndice.Health))
+			}
+		}
+	}
+
+	// Find all indices that are pending (not found in onlineIndices)
+	allOnlineIndices := concat(status.Ready, status.Restoring)
+
+	for _, indice := range indices {
+			// Verify index is not in the Ready or Restoring lists
+			found = false
+			target = path.Base(indice)
+			found = stringInList(allOnlineIndices, target)
+			if !found {
+				status.Pending = append(status.Pending, target)
+			}
+		}
+	return *status, nil
+}
+
+func stringInList(l []string, target string) bool {
+	i := sort.Search(len(l),
+			func(i int) bool { return l[i] >= target })
+	if i < len(l) && l[i] == target {
+		return true
+	}
+	return false
+}
+
+func concat(old1, old2 []string) []string {
+	newslice := make([]string, len(old1) + len(old2))
+	copy(newslice, old1)
+	copy(newslice[len(old1):], old2)
+	return newslice
 }

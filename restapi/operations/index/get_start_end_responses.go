@@ -18,7 +18,7 @@ swagger:response getStartEndOK
 type GetStartEndOK struct {
 
 	// In: body
-	Payload *models.Ready `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewGetStartEndOK creates GetStartEndOK with default headers values
@@ -27,13 +27,13 @@ func NewGetStartEndOK() *GetStartEndOK {
 }
 
 // WithPayload adds the payload to the get start end o k response
-func (o *GetStartEndOK) WithPayload(payload *models.Ready) *GetStartEndOK {
+func (o *GetStartEndOK) WithPayload(payload *models.IndiceStatus) *GetStartEndOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get start end o k response
-func (o *GetStartEndOK) SetPayload(payload *models.Ready) {
+func (o *GetStartEndOK) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
@@ -55,7 +55,7 @@ swagger:response getStartEndPartialContent
 type GetStartEndPartialContent struct {
 
 	// In: body
-	Payload *models.Partial `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewGetStartEndPartialContent creates GetStartEndPartialContent with default headers values
@@ -64,13 +64,13 @@ func NewGetStartEndPartialContent() *GetStartEndPartialContent {
 }
 
 // WithPayload adds the payload to the get start end partial content response
-func (o *GetStartEndPartialContent) WithPayload(payload *models.Partial) *GetStartEndPartialContent {
+func (o *GetStartEndPartialContent) WithPayload(payload *models.IndiceStatus) *GetStartEndPartialContent {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get start end partial content response
-func (o *GetStartEndPartialContent) SetPayload(payload *models.Partial) {
+func (o *GetStartEndPartialContent) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
@@ -129,7 +129,7 @@ swagger:response getStartEndNotFound
 type GetStartEndNotFound struct {
 
 	// In: body
-	Payload *models.NotReady `json:"body,omitempty"`
+	Payload *models.IndiceStatus `json:"body,omitempty"`
 }
 
 // NewGetStartEndNotFound creates GetStartEndNotFound with default headers values
@@ -138,13 +138,13 @@ func NewGetStartEndNotFound() *GetStartEndNotFound {
 }
 
 // WithPayload adds the payload to the get start end not found response
-func (o *GetStartEndNotFound) WithPayload(payload *models.NotReady) *GetStartEndNotFound {
+func (o *GetStartEndNotFound) WithPayload(payload *models.IndiceStatus) *GetStartEndNotFound {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get start end not found response
-func (o *GetStartEndNotFound) SetPayload(payload *models.NotReady) {
+func (o *GetStartEndNotFound) SetPayload(payload *models.IndiceStatus) {
 	o.Payload = payload
 }
 
