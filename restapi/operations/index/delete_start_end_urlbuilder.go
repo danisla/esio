@@ -11,8 +11,8 @@ import (
 	"github.com/go-openapi/swag"
 )
 
-// PostStartEndURL generates an URL for the post start end operation
-type PostStartEndURL struct {
+// DeleteStartEndURL generates an URL for the delete start end operation
+type DeleteStartEndURL struct {
 	End   int64
 	Start int64
 
@@ -24,7 +24,7 @@ type PostStartEndURL struct {
 }
 
 // Build a url path and query string
-func (o *PostStartEndURL) Build() (*url.URL, error) {
+func (o *DeleteStartEndURL) Build() (*url.URL, error) {
 	var result url.URL
 
 	var _path = "/{start}/{end}"
@@ -33,13 +33,13 @@ func (o *PostStartEndURL) Build() (*url.URL, error) {
 	if end != "" {
 		_path = strings.Replace(_path, "{end}", end, -1)
 	} else {
-		return nil, errors.New("End is required on PostStartEndURL")
+		return nil, errors.New("End is required on DeleteStartEndURL")
 	}
 	start := swag.FormatInt64(o.Start)
 	if start != "" {
 		_path = strings.Replace(_path, "{start}", start, -1)
 	} else {
-		return nil, errors.New("Start is required on PostStartEndURL")
+		return nil, errors.New("Start is required on DeleteStartEndURL")
 	}
 	result.Path = _path
 
@@ -67,7 +67,7 @@ func (o *PostStartEndURL) Build() (*url.URL, error) {
 }
 
 // Must is a helper function to panic when the url builder returns an error
-func (o *PostStartEndURL) Must(u *url.URL, err error) *url.URL {
+func (o *DeleteStartEndURL) Must(u *url.URL, err error) *url.URL {
 	if err != nil {
 		panic(err)
 	}
@@ -78,17 +78,17 @@ func (o *PostStartEndURL) Must(u *url.URL, err error) *url.URL {
 }
 
 // String returns the string representation of the path with query string
-func (o *PostStartEndURL) String() string {
+func (o *DeleteStartEndURL) String() string {
 	return o.Must(o.Build()).String()
 }
 
 // BuildFull builds a full url with scheme, host, path and query string
-func (o *PostStartEndURL) BuildFull(scheme, host string) (*url.URL, error) {
+func (o *DeleteStartEndURL) BuildFull(scheme, host string) (*url.URL, error) {
 	if scheme == "" {
-		return nil, errors.New("scheme is required for a full url on PostStartEndURL")
+		return nil, errors.New("scheme is required for a full url on DeleteStartEndURL")
 	}
 	if host == "" {
-		return nil, errors.New("host is required for a full url on PostStartEndURL")
+		return nil, errors.New("host is required for a full url on DeleteStartEndURL")
 	}
 
 	base, err := o.Build()
@@ -102,6 +102,6 @@ func (o *PostStartEndURL) BuildFull(scheme, host string) (*url.URL, error) {
 }
 
 // StringFull returns the string representation of a complete url
-func (o *PostStartEndURL) StringFull(scheme, host string) string {
+func (o *DeleteStartEndURL) StringFull(scheme, host string) string {
 	return o.Must(o.BuildFull(scheme, host)).String()
 }

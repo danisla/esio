@@ -14,18 +14,18 @@ import (
 	strfmt "github.com/go-openapi/strfmt"
 )
 
-// NewPostStartEndParams creates a new PostStartEndParams object
+// NewDeleteStartEndParams creates a new DeleteStartEndParams object
 // with the default values initialized.
-func NewPostStartEndParams() PostStartEndParams {
+func NewDeleteStartEndParams() DeleteStartEndParams {
 	var ()
-	return PostStartEndParams{}
+	return DeleteStartEndParams{}
 }
 
-// PostStartEndParams contains all the bound params for the post start end operation
+// DeleteStartEndParams contains all the bound params for the delete start end operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters PostStartEnd
-type PostStartEndParams struct {
+// swagger:parameters DeleteStartEnd
+type DeleteStartEndParams struct {
 
 	// HTTP Request Object
 	HTTPRequest *http.Request
@@ -52,7 +52,7 @@ type PostStartEndParams struct {
 
 // BindRequest both binds and validates a request, it assumes that complex things implement a Validatable(strfmt.Registry) error interface
 // for simple values it will use straight method calls
-func (o *PostStartEndParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
+func (o *DeleteStartEndParams) BindRequest(r *http.Request, route *middleware.MatchedRoute) error {
 	var res []error
 	o.HTTPRequest = r
 
@@ -84,7 +84,7 @@ func (o *PostStartEndParams) BindRequest(r *http.Request, route *middleware.Matc
 	return nil
 }
 
-func (o *PostStartEndParams) bindEnd(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *DeleteStartEndParams) bindEnd(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
@@ -99,7 +99,7 @@ func (o *PostStartEndParams) bindEnd(rawData []string, hasKey bool, formats strf
 	return nil
 }
 
-func (o *PostStartEndParams) bindRepoPattern(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *DeleteStartEndParams) bindRepoPattern(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
@@ -113,7 +113,7 @@ func (o *PostStartEndParams) bindRepoPattern(rawData []string, hasKey bool, form
 	return nil
 }
 
-func (o *PostStartEndParams) bindResolution(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *DeleteStartEndParams) bindResolution(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]
@@ -127,7 +127,7 @@ func (o *PostStartEndParams) bindResolution(rawData []string, hasKey bool, forma
 	return nil
 }
 
-func (o *PostStartEndParams) bindStart(rawData []string, hasKey bool, formats strfmt.Registry) error {
+func (o *DeleteStartEndParams) bindStart(rawData []string, hasKey bool, formats strfmt.Registry) error {
 	var raw string
 	if len(rawData) > 0 {
 		raw = rawData[len(rawData)-1]

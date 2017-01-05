@@ -43,6 +43,9 @@ func configureFlags(api *operations.EsioAPI) {
 			Options: &myFlags,
 		},
   }
+
+	// Initialize the restore queue
+	initQueues()
 }
 
 func configureAPI(api *operations.EsioAPI) http.Handler {
@@ -126,7 +129,6 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 
 		if allReady {
-			log.Println("All indices were ready")
 			return index.NewGetStartEndOK().WithPayload(&indiceStatus)
 		}
 
@@ -148,11 +150,150 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		// }
 
 		msg = fmt.Sprintf("Error processing current indice status.")
-		return index.NewGetStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 	})
 
 	api.IndexPostStartEndHandler = index.PostStartEndHandlerFunc(func(params index.PostStartEndParams) middleware.Responder {
-		return middleware.NotImplemented("operation index.PostStartEnd has not yet been implemented")
+		var msg = ""
+
+		start, end, err := parseTimeRange(params.Start, params.End)
+		if err != nil {
+			msg := fmt.Sprintf("%s", err)
+			return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// Index resolution override
+		var indexResolution = myFlags.IndexResolution
+		if params.Resolution != nil && *params.Resolution != "" {
+			indexResolution = *params.Resolution
+		}
+
+		// Repo pattern override
+		var repoPattern = myFlags.RepoPattern
+		if params.RepoPattern != nil && *params.RepoPattern != "" {
+			repoPattern = *params.RepoPattern
+		}
+
+		// Look for indices in given range.
+		indices, err := makeIndexListFromRange(start, end, indexResolution, repoPattern)
+		if err != nil {
+			msg = fmt.Sprintf("Could not make index range: %s", err)
+			return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// Iterate through list and validate each index.
+		var allPass = true
+		for _, i := range indices {
+			passed, err := validateSnapshotIndex(i)
+			if err != nil {
+				msg = fmt.Sprintf("Error validating index: %s: %s", i, err)
+				return index.NewPostStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+			}
+			allPass = allPass && passed
+		}
+
+		// Create the IndexStatus data structure
+		indiceStatus, err := makeIndexStatus(indices)
+		if err != nil {
+			msg = fmt.Sprintf("Error comparing online indices with snapshots list: %s", err)
+			return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// See if all requested indices are Ready
+		var allReady = true
+		var restoreStarted = false
+		var target = ""
+		for _, i := range indices {
+			target = path.Base(i)
+
+			// If index is not ready and is pending, then start restoring it.
+			if !stringInList(indiceStatus.Ready, target) && stringInList(indiceStatus.Pending, target) {
+				allReady = false
+
+				// Queue for restore
+				restoreQueue.Push(&Node{target})
+
+				log.Println(fmt.Sprintf("Index queued for restore: %s", i))
+
+				restoreStarted = true
+			}
+		}
+
+		// Rebuild the indice status
+		newIndiceStatus, err := makeIndexStatus(indices)
+		if err != nil {
+			msg = fmt.Sprintf("Error comparing online indices with snapshots list: %s", err)
+			return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// If all indices are online and ready then we are done.
+		if allReady {
+			return index.NewPostStartEndOK().WithPayload(&newIndiceStatus)
+		}
+
+		if restoreStarted {
+			return index.NewPostStartEndAccepted().WithPayload(&newIndiceStatus)
+		}
+
+		// If we made it here then some of the indices are restoring
+		return index.NewPostStartEndPartialContent().WithPayload(&newIndiceStatus)
+	})
+
+	api.IndexDeleteStartEndHandler = index.DeleteStartEndHandlerFunc(func(params index.DeleteStartEndParams) middleware.Responder {
+		var msg = ""
+
+		start, end, err := parseTimeRange(params.Start, params.End)
+		if err != nil {
+			msg := fmt.Sprintf("%s", err)
+			return index.NewDeleteStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// Index resolution override
+		var indexResolution = myFlags.IndexResolution
+		if params.Resolution != nil && *params.Resolution != "" {
+			indexResolution = *params.Resolution
+		}
+
+		// Repo pattern override
+		var repoPattern = myFlags.RepoPattern
+		if params.RepoPattern != nil && *params.RepoPattern != "" {
+			repoPattern = *params.RepoPattern
+		}
+
+		// Look for indices in given range.
+		indices, err := makeIndexListFromRange(start, end, indexResolution, repoPattern)
+		if err != nil {
+			msg = fmt.Sprintf("Could not make index range: %s", err)
+			return index.NewDeleteStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// Not allowed to delete restoring indices
+		for _, indice := range indices {
+			if restoreQueue.Contains(indice) {
+				msg = fmt.Sprintf("Index in range is currently being restored and cannot be deleted at this time: %s", indice)
+				return index.NewDeleteStartEndRequestRangeNotSatisfiable().WithPayload(&models.Error{Message: &msg})
+			}
+		}
+
+		deleteActive, err := deleteIndices(indices)
+		if err != nil {
+			msg = fmt.Sprintf("Error deleting index: %s", err)
+			return index.NewDeleteStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		// Create the IndexStatus data structure
+		indiceStatus, err := makeIndexStatus(indices)
+		if err != nil {
+			msg = fmt.Sprintf("Error comparing online indices with snapshots list: %s", err)
+			return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
+		}
+
+		if deleteActive {
+			return index.NewDeleteStartEndAccepted().WithPayload(&indiceStatus)
+		}
+
+		return index.NewDeleteStartEndOK().WithPayload(&indiceStatus)
+
 	})
 
 	api.HealthGetHealthzHandler = health.GetHealthzHandlerFunc(func(params health.GetHealthzParams) middleware.Responder {

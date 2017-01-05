@@ -159,43 +159,6 @@ func (o *PostStartEndBadRequest) WriteResponse(rw http.ResponseWriter, producer 
 	}
 }
 
-/*PostStartEndNotFound All indices in the [start,end] range are ready for restore but not available.
-
-swagger:response postStartEndNotFound
-*/
-type PostStartEndNotFound struct {
-
-	// In: body
-	Payload *models.IndiceStatus `json:"body,omitempty"`
-}
-
-// NewPostStartEndNotFound creates PostStartEndNotFound with default headers values
-func NewPostStartEndNotFound() *PostStartEndNotFound {
-	return &PostStartEndNotFound{}
-}
-
-// WithPayload adds the payload to the post start end not found response
-func (o *PostStartEndNotFound) WithPayload(payload *models.IndiceStatus) *PostStartEndNotFound {
-	o.Payload = payload
-	return o
-}
-
-// SetPayload sets the payload to the post start end not found response
-func (o *PostStartEndNotFound) SetPayload(payload *models.IndiceStatus) {
-	o.Payload = payload
-}
-
-// WriteResponse to the client
-func (o *PostStartEndNotFound) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
-
-	rw.WriteHeader(404)
-	if o.Payload != nil {
-		if err := producer.Produce(rw, o.Payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
-	}
-}
-
 /*PostStartEndRequestRangeNotSatisfiable Not all indices in given [start,end] range were found to restore.
 
 swagger:response postStartEndRequestRangeNotSatisfiable

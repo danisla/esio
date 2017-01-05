@@ -36,6 +36,14 @@ type CatIndex struct {
 	PriStoreSize string `json:"pri.store.size"`
 }
 
+var restoreQueue *Queue
+var deleteQueue *Queue
+
+func initQueues() {
+	restoreQueue = NewQueue(1)
+	deleteQueue = NewQueue(1)
+}
+
 // Create a list of indices to be restored from the given start,end range.
 // Snapshots are derived from the given repoPattern and discritized at intervals of given indexResolution
 func makeIndexListFromRange(start time.Time, end time.Time, indexResolution string, repoPattern string) ([]string, error) {
@@ -140,7 +148,7 @@ func getIndices() ([]CatIndex, error) {
 // Takes a list of indices and matches it against the found indices
 // Populates the []Ready, []Pending and []Restoring arrays of the IndiceStatus struct.
 func makeIndexStatus(indices []string) (models.IndiceStatus, error) {
-	var status = &models.IndiceStatus{Pending: make([]string, 0), Ready: make([]string, 0), Restoring: make([]string, 0)}
+	var status = &models.IndiceStatus{Pending: make([]string, 0), Ready: make([]string, 0), Restoring: make([]string, 0), Deleting: make([]string, 0)}
 
 	onlineIndices, err := getIndices()
 	if err != nil {
@@ -177,15 +185,50 @@ func makeIndexStatus(indices []string) (models.IndiceStatus, error) {
 	allOnlineIndices := concat(status.Ready, status.Restoring)
 
 	for _, indice := range indices {
-			// Verify index is not in the Ready or Restoring lists
-			found = false
-			target = path.Base(indice)
-			found = stringInList(allOnlineIndices, target)
-			if !found {
-				status.Pending = append(status.Pending, target)
-			}
+		// Verify index is not in the Ready or Restoring lists
+		found = false
+		target = path.Base(indice)
+		found = stringInList(allOnlineIndices, target)
+		queued := restoreQueue.Contains(target)
+		deleting := deleteQueue.Contains(target)
+
+		if !found && !queued && !deleting {
+			status.Pending = append(status.Pending, target)
 		}
+
+		if queued {
+			status.Restoring = append(status.Restoring, target)
+		}
+
+		if deleting {
+			status.Deleting = append(status.Deleting, target)
+		}
+	}
+
 	return *status, nil
+}
+
+func deleteIndices(indices []string) (bool, error) {
+	// Create the IndexStatus data structure
+	indiceStatus, err := makeIndexStatus(indices)
+	if err != nil {
+		return false, errors.New(500, fmt.Sprintf("Error comparing online indices with snapshots list: %s", err))
+	}
+
+	var deleting = false
+
+	for _, indice := range indices {
+		target := path.Base(indice)
+		queued := stringInList(indiceStatus.Deleting, target)
+
+		if stringInList(indiceStatus.Ready, target) && !queued {
+			log.Println(fmt.Sprintf("Deleting online index: %s", target))
+			deleteQueue.Push(&Node{target})
+			deleting = true
+		}
+	}
+
+	return deleting, nil
 }
 
 func stringInList(l []string, target string) bool {

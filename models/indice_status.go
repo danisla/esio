@@ -14,6 +14,9 @@ import (
 // swagger:model indice_status
 type IndiceStatus struct {
 
+	// List of indices that are being deleted.
+	Deleting []string `json:"deleting"`
+
 	// List of indices that are available not but being restored.
 	Pending []string `json:"pending"`
 
@@ -27,6 +30,11 @@ type IndiceStatus struct {
 // Validate validates this indice status
 func (m *IndiceStatus) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateDeleting(formats); err != nil {
+		// prop
+		res = append(res, err)
+	}
 
 	if err := m.validatePending(formats); err != nil {
 		// prop
@@ -46,6 +54,15 @@ func (m *IndiceStatus) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *IndiceStatus) validateDeleting(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Deleting) { // not required
+		return nil
+	}
+
 	return nil
 }
 

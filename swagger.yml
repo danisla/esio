@@ -70,13 +70,13 @@ paths:
           in: path
           required: true
           type: integer
-          format: int32
+          format: int64
         - name: end
           description: end time, unix timestamp
           in: path
           required: true
           type: integer
-          format: int32
+          format: int64
         - name: resolution
           description: Optional override of the index resolution, must be 'day', 'month', or 'year'
           in: query
@@ -98,12 +98,54 @@ paths:
           description: Zero or more of the indices in the [start,end] range are available and ready.
           schema:
             $ref: "#/definitions/indice_status"
-        404:
-          description: All indices in the [start,end] range are ready for restore but not available.
+        416:
+          description: Not all indices in given [start,end] range were found to restore.
+          schema:
+            $ref: "#/definitions/error"
+        400:
+          description: invalid time range provided
+          schema:
+            $ref: "#/definitions/error"
+        default:
+          description: Unexpected error
+          schema:
+            $ref: "#/definitions/error"
+
+    delete:
+      tags:
+        - index
+      parameters:
+        - name: start
+          description: start time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int64
+        - name: end
+          description: end time, unix timestamp
+          in: path
+          required: true
+          type: integer
+          format: int64
+        - name: resolution
+          description: Optional override of the index resolution, must be 'day', 'month', or 'year'
+          in: query
+          type: string
+        - name: repo_pattern
+          description: Optional override of the repo pattern, must be URL encoded.
+          in: query
+          type: string
+      responses:
+        200:
+          description: All indices in [start,end] range are no longer online.
+          schema:
+            $ref: "#/definitions/indice_status"
+        202:
+          description: Index delete started
           schema:
             $ref: "#/definitions/indice_status"
         416:
-          description: Not all indices in given [start,end] range were found to restore.
+          description: Not all indices in given [start,end] range were found to delete or were actively being restored.
           schema:
             $ref: "#/definitions/error"
         400:
@@ -154,6 +196,11 @@ definitions:
           type: string
       pending:
         description: List of indices that are available not but being restored.
+        type: array
+        items:
+          type: string
+      deleting:
+        description: List of indices that are being deleted.
         type: array
         items:
           type: string

@@ -46,6 +46,8 @@ type EsioAPI struct {
 	// JSONProducer registers a producer for a "application/json" mime type
 	JSONProducer runtime.Producer
 
+	// IndexDeleteStartEndHandler sets the operation handler for the delete start end operation
+	IndexDeleteStartEndHandler index.DeleteStartEndHandler
 	// HealthGetHealthzHandler sets the operation handler for the get healthz operation
 	HealthGetHealthzHandler health.GetHealthzHandler
 	// IndexGetStartEndHandler sets the operation handler for the get start end operation
@@ -113,6 +115,10 @@ func (o *EsioAPI) Validate() error {
 
 	if o.JSONProducer == nil {
 		unregistered = append(unregistered, "JSONProducer")
+	}
+
+	if o.IndexDeleteStartEndHandler == nil {
+		unregistered = append(unregistered, "index.DeleteStartEndHandler")
 	}
 
 	if o.HealthGetHealthzHandler == nil {
@@ -206,6 +212,11 @@ func (o *EsioAPI) initHandlerCache() {
 	if o.handlers == nil {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
+
+	if o.handlers["DELETE"] == nil {
+		o.handlers[strings.ToUpper("DELETE")] = make(map[string]http.Handler)
+	}
+	o.handlers["DELETE"]["/{start}/{end}"] = index.NewDeleteStartEnd(o.context, o.IndexDeleteStartEndHandler)
 
 	if o.handlers["GET"] == nil {
 		o.handlers[strings.ToUpper("GET")] = make(map[string]http.Handler)
