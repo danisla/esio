@@ -69,6 +69,22 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 	}
 
+	if myFlags.IndexResolution == "" {
+		if os.Getenv("INDEX_RESOLUTION") != "" {
+			myFlags.IndexResolution = os.Getenv("INDEX_RESOLUTION")
+		} else {
+			panic("No resolution flag or INDEX_RESOLUTION env provided.")
+		}
+	}
+
+	if myFlags.RepoPattern == "" {
+		if os.Getenv("REPO_PATTERN") != "" {
+			myFlags.RepoPattern = os.Getenv("REPO_PATTERN")
+		} else {
+			panic("No repo-pattern flag or REPO_PATTERN env provided.")
+		}
+	}
+
 	api.IndexGetStartEndHandler = index.GetStartEndHandlerFunc(func(params index.GetStartEndParams) middleware.Responder {
  		var msg = ""
 

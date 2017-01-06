@@ -19,6 +19,10 @@ ES_HOST ?= http://localhost:9200
 INDEX_RESOLUTION ?= day
 REPO_PATTERN ?= test/test-%Y_%m/test-v1-%j
 
+DOCKERFILE ?= build/Dockerfile
+DOCKER_REPO ?= danisla/esio
+DOCKER_TAG ?= v0.0.2
+
 PID := .server.PID
 
 all: run
@@ -73,6 +77,20 @@ restart-server:
 	make wait-server
 
 clean: stop-server stop-elastic
+
+$(DOCKERFILE):
+	mkdir -p build
+	printf "FROM alpine:3.5\n\nRUN apk update && apk add ca-certificates && rm -rf /tmp/* /var/cache/apk/*\n\nADD $(APP_CMD) /bin/$(APP_CMD)\n\nENTRYPOINT [\"/bin/$(APP_CMD)\"]" > $@
+
+build/$(APP_CMD):
+	mkdir -p build
+	GOOS=linux GOARCH=amd64 go build -o $@ cmd/esio-server/main.go
+
+image: build/$(APP_CMD) $(DOCKERFILE)
+	docker build -t $(DOCKER_REPO):$(DOCKER_TAG) build/
+
+image-clean:
+	rm -Rf build
 
 include elastic.mk
 include tests.mk
