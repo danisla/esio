@@ -155,7 +155,7 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 	target := path.Base(repoPattern)
 	endpoint := fmt.Sprintf("%s/_snapshot/%s", myFlags.EsHost, repo)
 
-	// log.Println("Checking snapshot: " + endpoint + " for index: " + target)
+	log.Println("Checking snapshot: " + endpoint + " for index: " + target)
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
