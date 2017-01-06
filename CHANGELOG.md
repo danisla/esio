@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Changed
+- Added logging of snapshot path to give visibility into `REPO_PATTERN`
 
 ## 0.0.1 - 2016-11-14
 ### Added
