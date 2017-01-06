@@ -2,12 +2,11 @@ package restapi
 
 import (
 	"crypto/tls"
-	// "encoding/json"
+	"encoding/json"
 	"log"
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 
 	errors "github.com/go-openapi/errors"
 	runtime "github.com/go-openapi/runtime"
@@ -120,12 +119,10 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		var allReady = true
 		var allPending = true
 		var restoringOrPending = true
-		var target = ""
-		for _, i := range indices {
-			target = path.Base(i)
-			allReady = allReady && stringInList(indiceStatus.Ready, target)
-			allPending = allPending && stringInList(indiceStatus.Pending, target)
-			restoringOrPending = restoringOrPending && (stringInList(indiceStatus.Restoring, target) || stringInList(indiceStatus.Pending, target))
+		for _, indice := range indices {
+			allReady = allReady && stringInList(indiceStatus.Ready, indice)
+			allPending = allPending && stringInList(indiceStatus.Pending, indice)
+			restoringOrPending = restoringOrPending && (stringInList(indiceStatus.Restoring, indice) || stringInList(indiceStatus.Pending, indice) || stringInList(indiceStatus.Deleting, indice))
 		}
 
 		if allReady {
@@ -142,14 +139,15 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		}
 
 		// DEBUG
-		// b, err := json.Marshal(indiceStatus)
-    // if err != nil {
-    //   fmt.Println(err)
-    // } else {
-		// 	log.Println(string(b))
-		// }
+		b, err := json.Marshal(indiceStatus)
+    if err != nil {
+      fmt.Println(err)
+    } else {
+			log.Println(string(b))
+		}
 
 		msg = fmt.Sprintf("Error processing current indice status.")
+		log.Println(msg)
 		return index.NewPostStartEndBadRequest().WithPayload(&models.Error{Message: &msg})
 	})
 
@@ -202,18 +200,16 @@ func configureAPI(api *operations.EsioAPI) http.Handler {
 		// See if all requested indices are Ready
 		var allReady = true
 		var restoreStarted = false
-		var target = ""
-		for _, i := range indices {
-			target = path.Base(i)
+		for _, indice := range indices {
 
 			// If index is not ready and is pending, then start restoring it.
-			if !stringInList(indiceStatus.Ready, target) && stringInList(indiceStatus.Pending, target) {
+			if !stringInList(indiceStatus.Ready, indice) && stringInList(indiceStatus.Pending, indice) {
 				allReady = false
 
 				// Queue for restore
-				restoreQueue.Push(&Node{target})
+				restoreQueue.Push(&Node{indice})
 
-				log.Println(fmt.Sprintf("Index queued for restore: %s", i))
+				log.Println(fmt.Sprintf("Index queued for restore: %s", indice))
 
 				restoreStarted = true
 			}

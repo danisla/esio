@@ -7,13 +7,19 @@ import (
 	"net/http"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	errors "github.com/go-openapi/errors"
 	strftime "github.com/hhkbp2/go-strftime"
+	elastic "gopkg.in/olivere/elastic.v2"
 
 	"github.com/danisla/esio/models"
 )
+
+type EsAcknowledgedResponse struct {
+	Acknowledged bool `json:acknowledged`
+}
 
 type SnapshotResponse struct {
 	Snapshots []Snapshot `json:"snapshots"`
@@ -36,12 +42,87 @@ type CatIndex struct {
 	PriStoreSize string `json:"pri.store.size"`
 }
 
+type SnapshotRestoreResponse struct {
+	Snapshot SnapshotRestore `json:"snapshot"`
+}
+
+type SnapshotRestore struct {
+	Snapshot string         `json:"snapshot"`
+	Indices  []string       `json:"indices"`
+	Shards   SnapshotShards `json:"shards"`
+}
+
+type SnapshotShards struct {
+	Total      int `json:"total"`
+	Failed     int `json:"failed"`
+	Successful int `json:"successful"`
+}
+
 var restoreQueue *Queue
 var deleteQueue *Queue
 
 func initQueues() {
 	restoreQueue = NewQueue(1)
 	deleteQueue = NewQueue(1)
+
+	// Start queue workers
+
+	// Restore queue worker
+	go func() {
+		for {
+			// Restores 1 index at a time based on what is in the restoreQueue
+			// TODO dequeue all available, then group by repo/snapshot and perform bulk restore.
+
+			for restoreQueue.count > 0 {
+				node := restoreQueue.Pop()
+				index := node.Value
+
+				// log.Println(fmt.Sprintf("Restoring index: %s, remaining in queue: %d", index, restoreQueue.count))
+				time.Sleep(1000 * time.Millisecond)
+
+				res, err := restoreSnapshot(index)
+				if err != nil {
+					log.Println(fmt.Sprintf("ERROR: could not restore index: %s, error: %s", index, err))
+				} else if !stringInList(res.Indices, path.Base(index)) {
+					log.Println(fmt.Sprintf("ERROR: index was not in list of restored indices: %s", res.Indices))
+				} else if res.Shards.Successful != res.Shards.Total {
+					log.Println(fmt.Sprintf("ERROR: not all shards for index '%s' were successfully recovered.", index))
+				} else {
+					log.Println(fmt.Sprintf("Successfully recovered index: %s", index))
+				}
+
+			}
+			time.Sleep(2000 * time.Millisecond)
+		}
+  }()
+
+	// Delete queue worker
+	go func() {
+		for {
+			for deleteQueue.count > 0 {
+				node := deleteQueue.Pop()
+				index := node.Value
+
+				time.Sleep(1000 * time.Millisecond)
+
+				client, err := elastic.NewClient(
+					elastic.SetURL(myFlags.EsHost),
+					elastic.SetHealthcheck(false),
+					elastic.SetSniff(false))
+				if err != nil {
+					log.Println(fmt.Sprintf("ERROR creating Elastic client for index delete: %s", err))
+				} else {
+					_, err = client.DeleteIndex(path.Base(index)).Do()
+					if err != nil {
+						log.Println(fmt.Sprintf("ERROR deleting ES index '%s': %s", path.Base(index), err))
+					} else {
+						log.Println(fmt.Sprintf("Successfully deleted index: %s", index))
+					}
+				}
+			}
+			time.Sleep(2000 * time.Millisecond)
+		}
+	}()
 }
 
 // Create a list of indices to be restored from the given start,end range.
@@ -72,11 +153,11 @@ func makeIndexListFromRange(start time.Time, end time.Time, indexResolution stri
 func validateSnapshotIndex(repoPattern string) (bool, error) {
 	repo := path.Dir(repoPattern)
 	target := path.Base(repoPattern)
-	url := fmt.Sprintf("%s/_snapshot/%s", myFlags.EsHost, repo)
+	endpoint := fmt.Sprintf("%s/_snapshot/%s", myFlags.EsHost, repo)
 
-	log.Println("Checking snapshot: " + url + " for index: " + target)
+	// log.Println("Checking snapshot: " + endpoint + " for index: " + target)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return false, errors.New(500, fmt.Sprintf("Error building http request: %s", err))
 	}
@@ -94,7 +175,7 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 
 	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
 		// TODO: need to test this
-		return false, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", url))
+		return false, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", endpoint))
 	}
 
 	if len(snap.Snapshots) == 0 {
@@ -116,14 +197,41 @@ func validateSnapshotIndex(repoPattern string) (bool, error) {
 	return false, errors.New(404, fmt.Sprintf("Index with name '%s' not found in repo: '%s'", target, snap))
 }
 
+func restoreSnapshot(snap string) (*SnapshotRestore, error) {
+	repo := path.Dir(snap)
+	indices := path.Base(snap)
+
+	log.Println(fmt.Sprintf("Restoring Snapshot from repo: %s with indices: %s", repo, indices))
+
+	endpoint := fmt.Sprintf("%s/_snapshot/%s/_restore?wait_for_completion=true", myFlags.EsHost, repo)
+
+	data := fmt.Sprintf(`{"indices":"%s"}`,indices)
+  buf := strings.NewReader(data)
+	resp, err := http.Post(endpoint, "application/json", buf)
+	if err != nil {
+		return nil, errors.New(500, fmt.Sprintf("HTTP Request error on POST %s", endpoint))
+	}
+
+	defer resp.Body.Close()
+
+	var snapRestore SnapshotRestoreResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&snapRestore); err != nil {
+		// TODO: need to test this
+		return &snapRestore.Snapshot, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", endpoint))
+	}
+
+	return &snapRestore.Snapshot, nil
+}
+
 func getIndices() ([]CatIndex, error) {
 	// var cat CatIndices
 	cat := make([]CatIndex,0)
 
 
-	url := fmt.Sprintf("%s/_cat/indices?format=json", myFlags.EsHost)
+	endpoint := fmt.Sprintf("%s/_cat/indices?format=json", myFlags.EsHost)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return cat, errors.New(500, fmt.Sprintf("Error building http request: %s", err))
 	}
@@ -139,7 +247,7 @@ func getIndices() ([]CatIndex, error) {
 
 	if err := json.NewDecoder(resp.Body).Decode(&cat); err != nil {
 		// TODO: need to test this
-		return cat, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", url))
+		return cat, errors.New(500, fmt.Sprintf("Error decoding ES JSON response for url: %s", endpoint))
 	}
 
 	return cat, nil
@@ -155,28 +263,34 @@ func makeIndexStatus(indices []string) (models.IndiceStatus, error) {
 		return *status, errors.New(500, fmt.Sprintf("Could not GET _cat/indices from Elasticsearch: %s", err))
 	}
 
-	var target = ""
 	var found = false
 
 	// Find all indices that are ready (open and green or yellow) or restoring (open and red)
 	for _, onlineIndice := range onlineIndices {
 
-		target = onlineIndice.Index
+		found = false
+		var match = ""
 
-		// Verify indice is in list of requested indices.
-		found = stringInList(indices, target)
+		// Match online index to availalbe indice in snapshot repo.
+		for _, i := range indices {
+			if path.Base(i) == onlineIndice.Index {
+				match = i
+				found = true
+				break
+			}
+		}
 
 		if found {
 			if onlineIndice.Status != "open" {
-				return *status, errors.New(500, fmt.Sprintf("Found existing indice on cluster that was not 'open': %s", target))
+				return *status, errors.New(500, fmt.Sprintf("Found existing indice on cluster that was not 'open': %s", match))
 			}
 
 			if onlineIndice.Health == "green" || onlineIndice.Health == "yellow" {
-				status.Ready = append(status.Ready, target)
+				status.Ready = append(status.Ready, match)
 			} else if onlineIndice.Health == "red" {
-				status.Restoring = append(status.Restoring, target)
+				status.Restoring = append(status.Restoring, match)
 			} else {
-				return *status, errors.New(500, fmt.Sprintf("Found online index: '%s' with invalid Health state '%s'", target, onlineIndice.Health))
+				return *status, errors.New(500, fmt.Sprintf("Found online index: '%s' with invalid Health state '%s'", match, onlineIndice.Health))
 			}
 		}
 	}
@@ -187,21 +301,20 @@ func makeIndexStatus(indices []string) (models.IndiceStatus, error) {
 	for _, indice := range indices {
 		// Verify index is not in the Ready or Restoring lists
 		found = false
-		target = path.Base(indice)
-		found = stringInList(allOnlineIndices, target)
-		queued := restoreQueue.Contains(target)
-		deleting := deleteQueue.Contains(target)
+		found = stringInList(allOnlineIndices, indice)
+		queued := restoreQueue.Contains(indice)
+		deleting := deleteQueue.Contains(indice)
 
 		if !found && !queued && !deleting {
-			status.Pending = append(status.Pending, target)
+			status.Pending = append(status.Pending, indice)
 		}
 
 		if queued {
-			status.Restoring = append(status.Restoring, target)
+			status.Restoring = append(status.Restoring, indice)
 		}
 
 		if deleting {
-			status.Deleting = append(status.Deleting, target)
+			status.Deleting = append(status.Deleting, indice)
 		}
 	}
 
@@ -218,12 +331,9 @@ func deleteIndices(indices []string) (bool, error) {
 	var deleting = false
 
 	for _, indice := range indices {
-		target := path.Base(indice)
-		queued := stringInList(indiceStatus.Deleting, target)
-
-		if stringInList(indiceStatus.Ready, target) && !queued {
-			log.Println(fmt.Sprintf("Deleting online index: %s", target))
-			deleteQueue.Push(&Node{target})
+		queued := stringInList(indiceStatus.Deleting, indice)
+		if stringInList(indiceStatus.Ready, indice) && !queued {
+			deleteQueue.Push(&Node{indice})
 			deleting = true
 		}
 	}
@@ -231,13 +341,13 @@ func deleteIndices(indices []string) (bool, error) {
 	return deleting, nil
 }
 
-func stringInList(l []string, target string) bool {
-	i := sort.Search(len(l),
-			func(i int) bool { return l[i] >= target })
-	if i < len(l) && l[i] == target {
-		return true
-	}
-	return false
+func stringInList(list []string, a string) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
 }
 
 func concat(old1, old2 []string) []string {
