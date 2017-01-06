@@ -15,7 +15,7 @@ MON_START_TS := 1472688000
 # 2016-12-28T00:00:00Z
 MON_END_TS := 1482883200
 
-test: test-invalid-resolution test-out-of-range test-1-day-offline test-3-day-offline test-1-month-offline test-3-month-offline
+test: test-invalid-resolution test-out-of-range test-1-day-offline test-3-day-offline test-1-month-offline test-3-month-offline test-1-day-restore test-1-day-delete test-3-day-restore test-3-day-delete
 	@echo "All tests PASSED"
 
 ###

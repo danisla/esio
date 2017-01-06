@@ -29,7 +29,7 @@ var myFlags = struct {
 	EsHost string `long:"es-host" description:"Elasticsearch Host [$ES_HOST]"`
 	MaxRestore int `long:"max-restore" description:"Maximum number of indices allowed to restore at once, default is 1 [$MAX_RESTORE]"`
 	IndexResolution string `long:"resolution" description:"Resolution of indices being restored (day, month, year) [$INDEX_RESOLUTION]"`
-	RepoPattern string `long:"repo-pattern" description:"Snapshot repo pattern (repo/snap/index), ex: logs-%y/logs-%y-%m-%d/logs-v1-%y-%m-%d, [$REPO_PATTERN]"`
+	RepoPattern string `long:"repo-pattern" description:"Snapshot repo pattern (repo/snap/index), ex: logs-%Y/logs-%Y-%m-%d/logs-v1-%Y-%m-%d, [$REPO_PATTERN]"`
 }{}
 
 func configureFlags(api *operations.EsioAPI) {
