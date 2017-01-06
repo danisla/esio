@@ -16,7 +16,7 @@ High level of what the API does:
 
 ## OpenAPI Spec
 
-The [OpenAPI 2.0](https://github.com/OAI/OpenAPI-Specification) spec is here: [./swagger.yml](./swagger.yml)
+The [OpenAPI 2.0](https://github.com/OAI/OpenAPI-Specification) spec is here: [`./swagger.yml`](./swagger.yml)
 
 ## Configuration
 
@@ -29,8 +29,20 @@ ESIO Flags:
                          [$REPO_PATTERN]
 ```
 
+# Development
+
+Use the make targets to build and test the esio-server.
+
+- `make`: validate the swagger spec, fetch dependencies, compile the source and run the server in the foreground.
+- `make test`: Start Elasticsearch via Docker in background, start server in background and run all tests
+- `make gen`: Regenerate swagger framework from `swagger.yml`
+- `make init-test-data`: Creates indices with faux timeseries data and snapshot repo in Elasticsearch for testing.
+- `make start-elastic`: start Elasticsearch and Kibana
+- `make stop-elastic`: stop Elasticsearch and Kibana
+
 ## Resources
 
 - [go-swagger v0.7.4](https://github.com/go-swagger/go-swagger/tree/0.7.4)
 - [OpenAPI v2.0 Spec](https://github.com/OAI/OpenAPI-Specification)
 - [Snapshot/Restore API](https://www.elastic.co/guide/en/elasticsearch/reference/current/modules-snapshots.html)
+- [Golang Elastic V2 Library](http://gopkg.in/olivere/elastic.v2)
